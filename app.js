@@ -1,18 +1,16 @@
 /**
- * YouTube Shorts Player - Pure Vanilla JavaScript (Pure Video View)
- * Features:
- * - Dynamic data loaded strictly from videos.json (GitHub Pages ready, zero backend)
- * - Zero overlay contents: only the video is displayed
- * - Pure vertical orientation layout (9:16 locked, no auto rotate)
- * - Smooth swipe up / down gestures (Touch, Mouse drag, Wheel, Keyboard)
- * - Click/tap on video to toggle Play / Pause
- * - Smart player lifecycle & memory management (preloading, auto cleanup)
+ * YouTube Shorts Player - Pure Vanilla JavaScript (Direct Embed Architecture)
+ * - Zero external SDK dependencies (bypasses www-widgetapi.js origin errors)
+ * - Works both on GitHub Pages (HTTP/HTTPS) and local file:// previews
+ * - Pure vertical view (9:16 locked, zero overlays)
+ * - Full swipe gestures (touch, mouse drag, mouse wheel, keyboard)
+ * - Click anywhere to toggle Play / Pause
  */
 
 (function () {
   'use strict';
 
-  // Fallback videos in case video.json is accessed via local file:// protocol
+  // Video list used for immediate local preview or as a fallback
   const FALLBACK_VIDEOS = [
     "https://www.youtube.com/shorts/kJQP7kiw5Fk",
     "https://www.youtube.com/shorts/9bZkp7q19f0",
@@ -25,9 +23,9 @@
   let videos = [];
   let currentIndex = 0;
   let isMuted = true;
+  let isPlaying = true;
   let hasUserInteracted = false;
-  const players = {}; // Map of slideIndex -> YT.Player instance
-  let ytApiReady = false;
+  const mountedIframes = {};
 
   // Gesture State
   let isDragging = false;
@@ -45,27 +43,32 @@
   const ambientGlow = document.getElementById('ambient-glow');
 
   /**
-   * Extract an 11-character YouTube video ID from various URL patterns or raw ID
+   * Extract YouTube 11-char video ID from URL or raw string
    */
   function extractVideoId(entry) {
     if (!entry) return null;
-    let input = (typeof entry === 'object') ? (entry.id || entry.url || '') : String(entry);
+    let input = (typeof entry === 'object') ? (entry.url || entry.id || '') : String(entry);
     input = input.trim();
 
-    // 11-char direct ID
     if (/^[a-zA-Z0-9_-]{11}$/.test(input)) {
       return input;
     }
 
-    // Standard YouTube URL formats: /shorts/ID, /watch?v=ID, youtu.be/ID, /embed/ID
     const match = input.match(/(?:shorts\/|v=|embed\/|youtu\.be\/|\/v\/)([a-zA-Z0-9_-]{11})/);
     return match ? match[1] : null;
   }
 
   /**
-   * Load video list from video.json (or videos.json)
+   * Load video list.
+   * Browsers block fetch() on file:/// due to CORS, so we detect file: protocol
+   * and load FALLBACK_VIDEOS instantly without triggering any CORS error.
    */
   async function loadVideosData() {
+    if (window.location.protocol === 'file:') {
+      console.info('Running via local file:// protocol. Using default video list. Deploy to GitHub Pages or run a local server (python3 -m http.server) to load custom video.json.');
+      return parseVideos(FALLBACK_VIDEOS);
+    }
+
     try {
       let response = await fetch('video.json', { cache: 'no-cache' });
       if (!response.ok) {
@@ -73,16 +76,16 @@
       }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      if (!Array.isArray(data) || data.length === 0) throw new Error('Empty array in video.json');
+      if (!Array.isArray(data) || data.length === 0) throw new Error('Empty array');
       return parseVideos(data);
     } catch (err) {
-      console.warn('Could not fetch video.json (using built-in fallback):', err.message);
+      console.warn('Could not fetch video.json, using fallback list:', err.message);
       return parseVideos(FALLBACK_VIDEOS);
     }
   }
 
   /**
-   * Normalize raw items to structured video objects
+   * Normalize video URLs into video items
    */
   function parseVideos(rawData) {
     const list = [];
@@ -99,7 +102,7 @@
   }
 
   /**
-   * Render clean slides without any overlays (only the video)
+   * Render slide DOM containers
    */
   function renderSlides() {
     track.innerHTML = '';
@@ -109,15 +112,13 @@
       slide.id = `slide-${index}`;
 
       slide.innerHTML = `
-        <!-- Preview thumbnail poster (hidden once playing) -->
+        <!-- Video thumbnail preview -->
         <img class="slide-poster" id="poster-${index}" src="${video.posterUrl}" alt="" loading="lazy" />
 
-        <!-- Container where YT.Player is mounted -->
-        <div class="player-container" id="player-container-${index}">
-          <div id="yt-player-${index}"></div>
-        </div>
+        <!-- IFrame mount container -->
+        <div class="player-container" id="player-container-${index}"></div>
 
-        <!-- Transparent gesture & click layer over the video -->
+        <!-- Gesture & Click overlay -->
         <div class="gesture-layer" id="gesture-${index}">
           <div class="action-ripple" id="ripple-${index}">
             <svg class="ripple-play" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -133,144 +134,105 @@
   }
 
   /**
-   * Initialize or retrieve YouTube Player instance for a slide
+   * Mount a YouTube iframe inside slide container using standard embed URL
    */
-  function initPlayerForSlide(index) {
+  function mountIframe(index, shouldAutoplay) {
     if (index < 0 || index >= videos.length) return;
-    if (players[index]) {
-      if (index === currentIndex) {
-        playActiveVideo(index);
+    if (mountedIframes[index]) {
+      if (shouldAutoplay) {
+        sendCommand(mountedIframes[index], 'playVideo');
+        if (!isMuted) sendCommand(mountedIframes[index], 'unMute');
       }
       return;
     }
 
-    const video = videos[index];
-    const containerId = `yt-player-${index}`;
-    const container = document.getElementById(containerId);
+    const container = document.getElementById(`player-container-${index}`);
     if (!container) return;
 
+    const video = videos[index];
+    const iframe = document.createElement('iframe');
+    iframe.id = `yt-iframe-${index}`;
+    // Construct standard embed URL with autoplay, mute, loop, and enablejsapi for postMessage
+    iframe.src = `https://www.youtube.com/embed/${video.id}?autoplay=${shouldAutoplay ? 1 : 0}&mute=${isMuted ? 1 : 0}&controls=0&loop=1&playlist=${video.id}&playsinline=1&enablejsapi=1&rel=0&modestbranding=1`;
+    iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+    iframe.setAttribute('allowfullscreen', 'true');
+    iframe.setAttribute('tabindex', '-1');
+
+    iframe.onload = () => {
+      // Hide poster once video iframe has finished rendering
+      setTimeout(() => {
+        const poster = document.getElementById(`poster-${index}`);
+        if (poster) poster.classList.add('hidden');
+      }, 350);
+    };
+
+    container.appendChild(iframe);
+    mountedIframes[index] = iframe;
+  }
+
+  /**
+   * Send command to YouTube iframe via postMessage with targetOrigin '*'
+   * This completely bypasses origin mismatch errors on file:// and https://
+   */
+  function sendCommand(iframe, func, args) {
+    if (!iframe || !iframe.contentWindow) return;
     try {
-      players[index] = new YT.Player(containerId, {
-        videoId: video.id,
-        playerVars: {
-          autoplay: index === currentIndex ? 1 : 0,
-          controls: 0,
-          rel: 0,
-          modestbranding: 1,
-          playsinline: 1,
-          loop: 1,
-          playlist: video.id, // Loop requires playlist
-          fs: 0,
-          disablekb: 1,
-          enablejsapi: 1,
-          iv_load_policy: 3,
-          origin: window.location.origin === 'null' ? undefined : window.location.origin
-        },
-        events: {
-          onReady: (event) => onPlayerReady(index, event),
-          onStateChange: (event) => onPlayerStateChange(index, event),
-          onError: (event) => onPlayerError(index, event)
+      iframe.contentWindow.postMessage(JSON.stringify({
+        event: 'command',
+        func: func,
+        args: args || []
+      }), '*');
+    } catch (e) {
+      console.warn('postMessage error:', e);
+    }
+  }
+
+  /**
+   * Listen to state events from YouTube iframes
+   */
+  window.addEventListener('message', (event) => {
+    if (!event.origin.includes('youtube')) return;
+    try {
+      const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+      if (data.event === 'onStateChange') {
+        if (data.info === 1) { // Playing
+          isPlaying = true;
+          document.getElementById(`poster-${currentIndex}`)?.classList.add('hidden');
+        } else if (data.info === 2) { // Paused
+          isPlaying = false;
         }
-      });
-    } catch (err) {
-      console.error(`Failed to initialize YT.Player for slide ${index}:`, err);
-    }
-  }
-
-  /**
-   * Player onReady event
-   */
-  function onPlayerReady(index, event) {
-    const player = event.target;
-    if (isMuted) {
-      player.mute();
-    } else {
-      player.unMute();
-    }
-
-    if (index === currentIndex) {
-      player.playVideo();
-    }
-  }
-
-  /**
-   * Player onStateChange event
-   */
-  function onPlayerStateChange(index, event) {
-    const poster = document.getElementById(`poster-${index}`);
-
-    if (event.data === YT.PlayerState.PLAYING) {
-      if (poster) poster.classList.add('hidden');
-      if (index === currentIndex) {
-        updateAmbientBackdrop();
+      } else if (data.event === 'infoDelivery' && data.info && data.info.playerState !== undefined) {
+        if (data.info.playerState === 1) {
+          isPlaying = true;
+          document.getElementById(`poster-${currentIndex}`)?.classList.add('hidden');
+        } else if (data.info.playerState === 2) {
+          isPlaying = false;
+        }
       }
-    } else if (event.data === YT.PlayerState.ENDED) {
-      // Loop video seamlessly
-      if (players[index] && typeof players[index].seekTo === 'function') {
-        players[index].seekTo(0);
-        players[index].playVideo();
-      }
-    }
-  }
+    } catch (e) {}
+  });
 
   /**
-   * Player onError event
-   */
-  function onPlayerError(index, event) {
-    console.warn(`YouTube Player error on video ${index} (${videos[index]?.id}): Code ${event.data}`);
-    const slide = document.getElementById(`slide-${index}`);
-
-    if (slide && !slide.querySelector('.slide-error')) {
-      const errorOverlay = document.createElement('div');
-      errorOverlay.className = 'slide-error';
-      errorOverlay.innerHTML = `
-        <p>Video unavailable (${event.data === 101 || event.data === 150 ? 'Owner restricted playback' : 'Error'}).</p>
-        <button class="skip-btn" id="skip-btn-${index}">Next Video ➔</button>
-      `;
-      slide.appendChild(errorOverlay);
-
-      document.getElementById(`skip-btn-${index}`)?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        nextVideo();
-      });
-    }
-  }
-
-  /**
-   * Play active video and handle mute state
-   */
-  function playActiveVideo(index) {
-    const player = players[index];
-    if (player && typeof player.playVideo === 'function') {
-      if (isMuted) {
-        player.mute();
-      } else {
-        player.unMute();
-      }
-      player.playVideo();
-    }
-  }
-
-  /**
-   * Toggle Play / Pause on active slide
+   * Toggle Play / Pause on current video
    */
   function togglePlayPause() {
-    const player = players[currentIndex];
-    if (!player || typeof player.getPlayerState !== 'function') return;
+    const iframe = mountedIframes[currentIndex];
+    if (!iframe) return;
 
     // First user tap enables audio
     if (!hasUserInteracted) {
       hasUserInteracted = true;
       isMuted = false;
-      player.unMute();
+      sendCommand(iframe, 'unMute');
     }
 
-    const state = player.getPlayerState();
-    if (state === YT.PlayerState.PLAYING) {
-      player.pauseVideo();
+    if (isPlaying) {
+      sendCommand(iframe, 'pauseVideo');
+      isPlaying = false;
       showRippleAnimation(currentIndex, 'pause');
     } else {
-      player.playVideo();
+      sendCommand(iframe, 'playVideo');
+      isPlaying = true;
       showRippleAnimation(currentIndex, 'play');
     }
   }
@@ -313,9 +275,8 @@
     currentIndex = targetIndex;
 
     // Pause previous video
-    const prevPlayer = players[prevIndex];
-    if (prevPlayer && typeof prevPlayer.pauseVideo === 'function') {
-      prevPlayer.pauseVideo();
+    if (mountedIframes[prevIndex]) {
+      sendCommand(mountedIframes[prevIndex], 'pauseVideo');
     }
 
     // Animate track translation
@@ -324,16 +285,17 @@
 
     updateAmbientBackdrop();
 
-    // Initialize or play current video
-    initPlayerForSlide(currentIndex);
+    // Mount and play target video
+    mountIframe(currentIndex, true);
+    isPlaying = true;
 
-    // Preload next video for instant swipe response
+    // Preload next video
     if (currentIndex + 1 < videos.length) {
-      initPlayerForSlide(currentIndex + 1);
+      mountIframe(currentIndex + 1, false);
     }
 
-    // Garbage-collect distant players to preserve memory and prevent sound leaks
-    cleanupDistantPlayers();
+    // Free memory of distant iframes
+    cleanupDistantIframes();
   }
 
   function nextVideo() {
@@ -349,25 +311,21 @@
   }
 
   /**
-   * Destroy players farther than 1 slide away and rebuild placeholder
+   * Destroy iframes more than 1 slide away to keep memory ultra low
    */
-  function cleanupDistantPlayers() {
-    Object.keys(players).forEach((key) => {
+  function cleanupDistantIframes() {
+    Object.keys(mountedIframes).forEach((key) => {
       const idx = parseInt(key, 10);
       if (Math.abs(idx - currentIndex) > 1) {
-        if (players[idx] && typeof players[idx].destroy === 'function') {
-          try {
-            players[idx].destroy();
-          } catch (e) {
-            console.warn(e);
-          }
-          delete players[idx];
-
-          const container = document.getElementById(`player-container-${idx}`);
-          if (container) {
-            container.innerHTML = `<div id="yt-player-${idx}"></div>`;
-          }
+        const iframe = mountedIframes[idx];
+        if (iframe && iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
         }
+        delete mountedIframes[idx];
+
+        // Restore preview poster
+        const poster = document.getElementById(`poster-${idx}`);
+        if (poster) poster.classList.remove('hidden');
       }
     });
   }
@@ -461,14 +419,14 @@
     // Restore smooth CSS transition
     track.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1)';
 
-    // 1. Detect Click / Tap (Movement less than 12px within 350ms) -> Toggle Play/Pause
+    // 1. Detect Click / Tap -> Toggle Play/Pause
     if (distanceY < 12 && distanceX < 12 && elapsedTime < 350) {
       track.style.transform = `translateY(-${currentIndex * 100}%)`;
       togglePlayPause();
       return;
     }
 
-    // 2. Detect Swipe Up (Next Video)
+    // 2. Detect Swipe Up -> Next Video
     if (deltaY < -50 || (deltaY < -20 && elapsedTime < 220)) {
       if (currentIndex < videos.length - 1) {
         goToVideo(currentIndex + 1);
@@ -478,7 +436,7 @@
       return;
     }
 
-    // 3. Detect Swipe Down (Previous Video)
+    // 3. Detect Swipe Down -> Previous Video
     if (deltaY > 50 || (deltaY > 20 && elapsedTime < 220)) {
       if (currentIndex > 0) {
         goToVideo(currentIndex - 1);
@@ -488,12 +446,12 @@
       return;
     }
 
-    // 4. Default: Snap back
+    // 4. Snap back if gesture wasn't a swipe
     track.style.transform = `translateY(-${currentIndex * 100}%)`;
   }
 
   /**
-   * Handle Mouse Wheel with smooth cooldown
+   * Handle Mouse Wheel
    */
   function onWheel(e) {
     e.preventDefault();
@@ -513,7 +471,7 @@
   }
 
   /**
-   * Handle Keyboard Navigation
+   * Keyboard Shortcuts
    */
   function onKeyDown(e) {
     if (['ArrowDown', 'PageDown', 'j', 'J'].includes(e.key)) {
@@ -528,16 +486,15 @@
     } else if (['m', 'M'].includes(e.key)) {
       e.preventDefault();
       isMuted = !isMuted;
-      const player = players[currentIndex];
-      if (player) {
-        if (isMuted) player.mute();
-        else player.unMute();
+      const iframe = mountedIframes[currentIndex];
+      if (iframe) {
+        sendCommand(iframe, isMuted ? 'mute' : 'unMute');
       }
     }
   }
 
   /**
-   * Main Initialization
+   * Application Bootstrapper
    */
   async function initApp() {
     initGestureEngine();
@@ -547,30 +504,17 @@
 
     renderSlides();
 
-    if (ytApiReady) {
-      onAllReady();
-    }
-  }
-
-  function onAllReady() {
     if (initialLoader) {
       initialLoader.classList.add('hidden');
     }
-    initPlayerForSlide(0);
+
+    // Mount first video and preload second video
+    mountIframe(0, true);
     if (videos.length > 1) {
-      initPlayerForSlide(1);
+      mountIframe(1, false);
     }
   }
 
-  // Hook for YouTube Iframe API ready callback
-  window.onYouTubeIframeAPIReady = function () {
-    ytApiReady = true;
-    if (videos.length > 0) {
-      onAllReady();
-    }
-  };
-
-  // Launch application
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initApp);
   } else {
