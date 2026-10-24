@@ -12,13 +12,13 @@
 (function () {
   'use strict';
 
-  // Fallback videos in case videos.json is accessed via local file:// protocol
+  // Fallback videos in case video.json is accessed via local file:// protocol
   const FALLBACK_VIDEOS = [
-    { "url": "https://www.youtube.com/shorts/kJQP7kiw5Fk" },
-    { "url": "https://www.youtube.com/shorts/9bZkp7q19f0" },
-    { "url": "https://www.youtube.com/shorts/M7lc1UVf-VE" },
-    { "url": "https://www.youtube.com/shorts/dQw4w9WgXcQ" },
-    { "url": "https://www.youtube.com/shorts/L_LUpnjgPso" }
+    "https://www.youtube.com/shorts/kJQP7kiw5Fk",
+    "https://www.youtube.com/shorts/9bZkp7q19f0",
+    "https://www.youtube.com/shorts/M7lc1UVf-VE",
+    "https://www.youtube.com/shorts/dQw4w9WgXcQ",
+    "https://www.youtube.com/shorts/L_LUpnjgPso"
   ];
 
   // Application State
@@ -63,17 +63,20 @@
   }
 
   /**
-   * Load video list from videos.json (fallback if local file:// blocks fetch)
+   * Load video list from video.json (or videos.json)
    */
   async function loadVideosData() {
     try {
-      const response = await fetch('videos.json', { cache: 'no-cache' });
+      let response = await fetch('video.json', { cache: 'no-cache' });
+      if (!response.ok) {
+        response = await fetch('videos.json', { cache: 'no-cache' });
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      if (!Array.isArray(data) || data.length === 0) throw new Error('Empty array in videos.json');
+      if (!Array.isArray(data) || data.length === 0) throw new Error('Empty array in video.json');
       return parseVideos(data);
     } catch (err) {
-      console.warn('Could not fetch videos.json (using built-in fallback):', err.message);
+      console.warn('Could not fetch video.json (using built-in fallback):', err.message);
       return parseVideos(FALLBACK_VIDEOS);
     }
   }

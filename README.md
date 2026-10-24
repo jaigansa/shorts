@@ -2,7 +2,17 @@
 
 A clean, modern, high-performance vertical YouTube Shorts player built with **pure vanilla JavaScript, HTML5, and CSS3**. Designed to run directly on **GitHub Pages** with zero backend servers, zero dependencies, and zero build steps.
 
-All videos are configured through a single [`videos.json`](videos.json) file in your repository.
+All videos are configured through a single [`video.json`](video.json) file in your repository:
+
+```json
+[
+  "https://www.youtube.com/shorts/kJQP7kiw5Fk",
+  "https://www.youtube.com/shorts/9bZkp7q19f0",
+  "https://www.youtube.com/shorts/M7lc1UVf-VE",
+  "https://www.youtube.com/shorts/dQw4w9WgXcQ",
+  "https://www.youtube.com/shorts/L_LUpnjgPso"
+]
+```
 
 ---
 
