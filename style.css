@@ -155,11 +155,14 @@ html, body {
 }
 
 .player-container iframe {
+  position: absolute;
+  top: -55px;
+  left: 0;
   width: 100%;
-  height: 100%;
+  height: calc(100% + 110px);
   border: 0;
   pointer-events: none; /* Allows gestures and tap to play/pause */
-  transform: scale(1.01);
+  transform: scale(1.02);
 }
 
 /* Completely transparent gesture & click layer over video */
