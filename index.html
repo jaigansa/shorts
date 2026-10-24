@@ -6,84 +6,27 @@
   <meta name="screen-orientation" content="portrait">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#0a0a0f">
+  <meta name="theme-color" content="#000000">
   <title>YouTube Shorts Player</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <!-- Ambient background glow for desktop experience -->
+  <!-- Ambient background glow for desktop view -->
   <div class="ambient-glow" id="ambient-glow"></div>
 
-  <!-- Main vertical player frame (strictly locked to vertical aspect-ratio) -->
+  <!-- Main vertical player frame (strictly 9:16 portrait, no auto rotate) -->
   <main class="player-shell" id="player-shell">
-
-    <!-- Top floating header overlay -->
-    <header class="top-bar">
-      <div class="brand-badge">
-        <svg class="shorts-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-          <path d="M10 14.65v-5.3L15 12l-5 2.65zm7.8-7.17C17.06 6.3 15.65 6 12 6s-5.06.3-5.8.48c-.9.23-1.6.93-1.83 1.83C4.19 9.05 4 10.46 4 12s.19 2.95.37 3.69c.23.9.93 1.6 1.83 1.83.74.18 2.15.48 5.8.48s5.06-.3 5.8-.48c.9-.23 1.6-.93 1.83-1.83.18-.74.37-2.15.37-3.69s-.19-2.95-.37-3.69c-.23-.9-.93-1.6-1.83-1.83z" fill="#ff0000"/>
-        </svg>
-        <span class="brand-text">Shorts</span>
-      </div>
-      
-      <div class="top-controls">
-        <span class="counter-badge" id="counter-badge">1 / 1</span>
-        <button class="icon-btn sound-toggle-btn" id="sound-btn" aria-label="Toggle sound" title="Toggle audio (M)">
-          <svg class="icon icon-muted" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M11 5L6 9H2v6h4l5 4V5z"/>
-            <line x1="23" y1="9" x2="17" y2="15"/>
-            <line x1="17" y1="9" x2="23" y2="15"/>
-          </svg>
-          <svg class="icon icon-sound" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-          </svg>
-        </button>
-      </div>
-    </header>
-
-    <!-- Tap to unmute hint pill (appears when first loaded muted) -->
-    <div class="unmute-banner" id="unmute-banner">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-      </svg>
-      <span>Tap anywhere to unmute</span>
-    </div>
-
     <!-- Main swipe viewport containing the vertical slides track -->
     <div class="viewport" id="viewport">
       <div class="shorts-track" id="shorts-track">
-        <!-- Slides are rendered dynamically by JavaScript from videos.json -->
+        <!-- Pure video slides loaded dynamically from videos.json -->
       </div>
     </div>
-
-    <!-- Floating navigation arrows for desktop -->
-    <div class="desktop-nav">
-      <button class="nav-arrow-btn nav-prev" id="nav-prev-btn" aria-label="Previous Short" title="Previous Short (Up Arrow)">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="18 15 12 9 6 15"/>
-        </svg>
-      </button>
-      <button class="nav-arrow-btn nav-next" id="nav-next-btn" aria-label="Next Short" title="Next Short (Down Arrow)">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-      </button>
-    </div>
-
-    <!-- Toast notification -->
-    <div class="toast" id="toast"></div>
 
     <!-- Initial loading screen -->
     <div class="loader-overlay" id="initial-loader">
       <div class="spinner"></div>
-      <p class="loader-text">Loading Shorts...</p>
     </div>
-
   </main>
 
   <!-- YouTube IFrame API -->
