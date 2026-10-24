@@ -61,7 +61,7 @@ html, body {
 }
 
 /* Mobile portrait: full screen vertical player */
-@media (max-width: 540px) {
+@media (max-width: 540px), (display-mode: fullscreen), (display-mode: standalone) {
   .player-shell {
     max-height: 100dvh;
     height: 100dvh;

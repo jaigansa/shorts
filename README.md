@@ -19,7 +19,9 @@ All videos are configured through a single [`video.json`](video.json) file in yo
 ## ✨ Features
 
 - **Pure JavaScript & Zero Dependencies**: 100% Vanilla JS, HTML5, and CSS3. No React, no Vue, no `node_modules`.
-- **JSON-Driven Video Feed**: No frontend forms or link submission inputs. All video links live cleanly in `videos.json`.
+- **Pure Video View (Zero Overlays)**: Fullscreen video with no top bars, playlist controls, or next buttons.
+- **Progressive Web App (PWA)**: Installable as a standalone, native-feeling fullscreen app on iOS, Android, and Desktop.
+- **JSON-Driven Video Feed**: All video links live cleanly in `video.json`.
 - **Strictly Vertical (9:16) & No Auto-Rotate**:
   - Locked 9:16 portrait aspect ratio.
   - Maintains strict vertical orientation even if a phone is turned sideways—never stretches or switches to horizontal widescreen.
@@ -119,7 +121,26 @@ The app's extractor automatically parses any of these formats.
 | `↑` / `Page Up` / `K` | Previous Short (Swipe Down) |
 | `Space` | Play / Pause |
 | `M` | Mute / Unmute audio |
-| `L` | Like / Unlike video |
+| `F` | Toggle Fullscreen |
+
+---
+
+## 📱 How to Install as a Fullscreen PWA App
+
+### On Android (Chrome / Brave / Edge):
+1. Open the URL in Chrome on your phone.
+2. Tap the **three dots menu** (top right) ➔ **"Install app"** or **"Add to Home screen"**.
+3. Tap **Install**. The app will launch in true edge-to-edge fullscreen without any browser address bar!
+
+### On iOS (iPhone / iPad - Safari):
+1. Open the URL in Safari.
+2. Tap the **Share** button (box with an arrow pointing up).
+3. Scroll down and tap **"Add to Home Screen"**.
+4. Tap **Add**. The app opens as a native fullscreen app without Safari tabs or address bars.
+
+### On Desktop (Chrome / Edge / Windows / Mac):
+1. Click the **Install** icon in the address bar (or Menu ➔ **Install Shorts Player**).
+2. It opens in its own borderless window. Press `F` to toggle full-screen at any time.
 
 ---
 

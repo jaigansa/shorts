@@ -519,6 +519,20 @@
       if (iframe) {
         sendCommand(iframe, isMuted ? 'mute' : 'unMute');
       }
+    } else if (['f', 'F'].includes(e.key)) {
+      e.preventDefault();
+      toggleFullscreen();
+    }
+  }
+
+  /**
+   * Toggle Browser Fullscreen
+   */
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else if (document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
     }
   }
 
@@ -546,6 +560,13 @@
     mountIframe(0, true);
     if (videos.length > 1) {
       mountIframe(1, false);
+    }
+
+    // Register Service Worker for PWA Fullscreen installation
+    if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+      navigator.serviceWorker.register('./sw.js')
+        .then((reg) => console.log('Shorts PWA ready:', reg.scope))
+        .catch((err) => console.warn('PWA registration:', err));
     }
   }
 
