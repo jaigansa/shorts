@@ -178,13 +178,20 @@
     iframe.onload = () => {
       // Hide poster once video iframe has finished rendering
       setTimeout(() => {
-        const poster = document.getElementById(`poster-${index}`);
-        if (poster) poster.classList.add('hidden');
-      }, 350);
+        hidePoster(index);
+      }, 300);
     };
 
     container.appendChild(iframe);
     mountedIframes[index] = iframe;
+  }
+
+  function hidePoster(index) {
+    const poster = document.getElementById(`poster-${index}`);
+    if (poster) {
+      poster.classList.add('hidden');
+      poster.style.display = 'none';
+    }
   }
 
   /**
@@ -214,7 +221,7 @@
       if (data.event === 'onStateChange') {
         if (data.info === 1) { // Playing
           isPlaying = true;
-          document.getElementById(`poster-${currentIndex}`)?.classList.add('hidden');
+          hidePoster(currentIndex);
         } else if (data.info === 2) { // Paused
           isPlaying = false;
         } else if (data.info === 0) { // Ended -> Auto loop Short
@@ -227,7 +234,7 @@
       } else if (data.event === 'infoDelivery' && data.info && data.info.playerState !== undefined) {
         if (data.info.playerState === 1) {
           isPlaying = true;
-          document.getElementById(`poster-${currentIndex}`)?.classList.add('hidden');
+          hidePoster(currentIndex);
         } else if (data.info.playerState === 2) {
           isPlaying = false;
         } else if (data.info.playerState === 0) {
@@ -317,6 +324,7 @@
     // Mount and play target video
     mountIframe(currentIndex, true);
     isPlaying = true;
+    hidePoster(currentIndex);
 
     // Preload next video
     if (currentIndex + 1 < videos.length) {
@@ -354,7 +362,10 @@
 
         // Restore preview poster
         const poster = document.getElementById(`poster-${idx}`);
-        if (poster) poster.classList.remove('hidden');
+        if (poster) {
+          poster.classList.remove('hidden');
+          poster.style.display = 'block';
+        }
       }
     });
   }
@@ -549,11 +560,7 @@
 
     if (initialLoader) {
       initialLoader.classList.add('hidden');
-    }
-
-    // Check if opened via local file:/// (which triggers YouTube Error 153)
-    if (window.location.protocol === 'file:') {
-      showFileProtocolWarning();
+      initialLoader.style.display = 'none';
     }
 
     // Mount first video and preload second video
@@ -568,27 +575,6 @@
         .then((reg) => console.log('Shorts PWA ready:', reg.scope))
         .catch((err) => console.warn('PWA registration:', err));
     }
-  }
-
-  /**
-   * Display friendly guide if opened via file:/// without an HTTP server
-   */
-  function showFileProtocolWarning() {
-    const warning = document.createElement('div');
-    warning.className = 'protocol-warning';
-    warning.innerHTML = `
-      <div class="warning-card">
-        <div class="warning-icon">⚠️</div>
-        <h3>YouTube Embed Error 153 (file://)</h3>
-        <p>YouTube's servers block video embeds loaded directly from <code>file:///</code> without an HTTP web origin.</p>
-        <div class="warning-cmd">
-          <code>python3 -m http.server 8080</code>
-        </div>
-        <p class="warning-sub">Run the command above in your terminal, then open <strong>http://localhost:8080</strong>.<br>(On GitHub Pages, this works automatically!)</p>
-        <button class="dismiss-btn" onclick="this.closest('.protocol-warning').remove()">Dismiss</button>
-      </div>
-    `;
-    document.getElementById('player-shell')?.appendChild(warning);
   }
 
   if (document.readyState === 'loading') {
