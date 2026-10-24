@@ -152,10 +152,18 @@
     const video = videos[index];
     const iframe = document.createElement('iframe');
     iframe.id = `yt-iframe-${index}`;
-    // Construct standard embed URL with autoplay, mute, loop, and enablejsapi for postMessage
-    iframe.src = `https://www.youtube.com/embed/${video.id}?autoplay=${shouldAutoplay ? 1 : 0}&mute=${isMuted ? 1 : 0}&controls=0&loop=1&playlist=${video.id}&playsinline=1&enablejsapi=1&rel=0&modestbranding=1`;
-    iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+
+    // Pass origin parameter only when running over http/https
+    const originParam = window.location.protocol.startsWith('http')
+      ? `&origin=${encodeURIComponent(window.location.origin)}`
+      : '';
+
+    // Standard YouTube embed URL with required parameters
+    iframe.src = `https://www.youtube.com/embed/${video.id}?autoplay=${shouldAutoplay ? 1 : 0}&mute=${isMuted ? 1 : 0}&controls=0&loop=1&playlist=${video.id}&playsinline=1&enablejsapi=1&rel=0${originParam}`;
+    iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+    iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
     iframe.setAttribute('allowfullscreen', 'true');
+    iframe.setAttribute('frameborder', '0');
     iframe.setAttribute('tabindex', '-1');
 
     iframe.onload = () => {
@@ -508,11 +516,37 @@
       initialLoader.classList.add('hidden');
     }
 
+    // Check if opened via local file:/// (which triggers YouTube Error 153)
+    if (window.location.protocol === 'file:') {
+      showFileProtocolWarning();
+    }
+
     // Mount first video and preload second video
     mountIframe(0, true);
     if (videos.length > 1) {
       mountIframe(1, false);
     }
+  }
+
+  /**
+   * Display friendly guide if opened via file:/// without an HTTP server
+   */
+  function showFileProtocolWarning() {
+    const warning = document.createElement('div');
+    warning.className = 'protocol-warning';
+    warning.innerHTML = `
+      <div class="warning-card">
+        <div class="warning-icon">⚠️</div>
+        <h3>YouTube Embed Error 153 (file://)</h3>
+        <p>YouTube's servers block video embeds loaded directly from <code>file:///</code> without an HTTP web origin.</p>
+        <div class="warning-cmd">
+          <code>python3 -m http.server 8080</code>
+        </div>
+        <p class="warning-sub">Run the command above in your terminal, then open <strong>http://localhost:8080</strong>.<br>(On GitHub Pages, this works automatically!)</p>
+        <button class="dismiss-btn" onclick="this.closest('.protocol-warning').remove()">Dismiss</button>
+      </div>
+    `;
+    document.getElementById('player-shell')?.appendChild(warning);
   }
 
   if (document.readyState === 'loading') {
